@@ -1,0 +1,6 @@
+- $t: page
+  $path: index.html
+  title: hello world
+- $t: page
+  $path: other.html
+  title: The other file
