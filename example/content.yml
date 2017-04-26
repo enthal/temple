@@ -1,6 +1,54 @@
 - $t: page
   $path: index.html
   title: hello world
+  body:
+
 - $t: page
   $path: other.html
   title: The other file
+  body:
+    - $t: ul
+      of:
+        - &somewords
+          $t: li
+          of: some nice **words**
+        - $t: li
+          of: |-
+            other words...
+        - $t: ul
+          of:
+            - $t: li
+              of: deeper words
+            - *somewords
+            - $t: li
+              of: futher down _deep_ words
+            - $t: li
+              of: oh my...
+
+- $t: page
+  $path: faq.html
+  title: FAQ
+  body:
+    - $t: faq
+      question: What's the meaning of life?
+      answer: 47
+    - $t: faq
+      question: What _never_ gets old?
+      answer: Recursion.
+    - $t: faq
+      question: Why do people like lists?
+      answer:
+        $t: ul
+        of:
+          - $t: li
+            of: Meaning!
+          - $t: li
+            of: Clarity!
+          - $t: li
+            of: "*Bullets!*"
+    - $t: faq
+      question: Why do people *really* like lists?
+      answer: |-
+          - Meaning!
+          - Clarity!
+          - "*Bullets!*"
