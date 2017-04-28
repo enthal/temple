@@ -6,6 +6,7 @@ const glob = require('glob-all');
 const Promise = require('bluebird');
 const marked = require('marked');
 const program = require('commander');
+const pretty = require('pretty');
 
 Promise.promisifyAll(fs);
 
@@ -56,7 +57,7 @@ const main = () => {
           }, o), {sourceURL:o.$t});
 
         if (o.$path) {
-          fs.outputFileSync(program.out + o.$path, text);
+          fs.outputFileSync(program.out + o.$path, pretty(text, {ocd: true}));
         }
       } else
 
