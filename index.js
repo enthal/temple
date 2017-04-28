@@ -25,7 +25,6 @@ const main = () => {
   });
 
   const content = yaml.safeLoad(fs.readFileSync(program.content, 'utf8'));  // TODO: async
-  log(content)
 
   fs.emptyDirSync(program.out);
 
@@ -34,7 +33,6 @@ const main = () => {
   }
 
   const templateFilenames = glob.sync(program.templates + '/**/*');
-  log(templateFilenames);
   const templatesByName = _.fromPairs(_.map(templateFilenames, (f) => {
     const name = /.*\/([^.]+).*/.exec(f)[1];  // TODO: nest template naming (flattening here)
     return [name,_.template(fs.readFileSync(f, 'utf8'))];  // TODO: async
@@ -43,7 +41,6 @@ const main = () => {
   const recurse = (os) => {
     if (os == null)     { os = []; }
     if (!_.isArray(os)) { os = [os]; }
-    log(os)
 
     return _.map(os, (o) => {
       let text;
@@ -70,10 +67,10 @@ const main = () => {
       else {
         o = (''+o);
         text = marked(o);
-        if (! ~o.indexOf('\n')) {
-          const m = /^<p>(.*)<\/p>\s*$/.exec(text);
-          if (m) text = `<span>${m[1]}</span>`;
-          log(m,text)
+        const m = /^<p>([^]*)<\/p>\n$/ .exec(text);
+        if (m && !/<p>/.test(m[1])) {
+          // Only 1 wrapping <p>: replace with <span>
+          text = `<span>${m[1]}</span>`;
         }
       }
 
