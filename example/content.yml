@@ -30,8 +30,8 @@
   title: FAQ
   body:
     - $t: faq
-      question: What's the meaning of life?
-      answer: 47
+      question: What's the answer to the Ultimate Question of Life, The Universe, and Everything
+      answer: 42
     - $t: faq
       question: What _never_ gets old?
       answer: Recursion.
