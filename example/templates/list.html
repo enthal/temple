@@ -1,0 +1,21 @@
+<% const list = (xs) => { %>
+  <ul>
+  <% 
+    _.each(xs, (x)=> {
+      if (_.isArray(x)) {
+        list(x);
+      } else {
+      %>
+      <li>
+        <%= $.recurse(x) %>
+      </li>
+      <%
+      }
+    });
+  %>
+  </ul>
+<% } %>
+
+<div>
+<% list(of) %>
+</div>

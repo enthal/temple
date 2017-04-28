@@ -1,7 +1,9 @@
 - $t: page
   $path: index.html
   title: hello world
-  body:
+  body: |-
+    ## Here's content, by example.
+    You may view the [other](other.html) page, or the [FAQ](faq.html).
 
 - $t: page
   $path: other.html
@@ -24,13 +26,26 @@
               of: futher down _deep_ words
             - $t: li
               of: oh my...
+    - |-
+      ## but then...
+    - $t: list
+      of:
+        - a more concise
+        - listing format
+        -                     # an unfortunate consequence of yaml
+          - even _deeper_
+          - descent
+        - where `madness`
+        - fears
+        - to tread.
+
 
 - $t: page
   $path: faq.html
   title: FAQ
   body:
     - $t: faq
-      question: What's the answer to the Ultimate Question of Life, The Universe, and Everything
+      question: What's the answer to the Ultimate Question of Life, The Universe, and Everything?
       answer: 42
     - $t: faq
       question: What _never_ gets old?
@@ -47,7 +62,7 @@
           - $t: li
             of: "*Bullets!*"
     - $t: faq
-      question: Why do people *really* like lists?
+      question: Why do people like `markdown` lists?
       answer: |-
           - Meaning!
           - Clarity!
