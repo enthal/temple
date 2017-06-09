@@ -16,5 +16,10 @@
     "js-yaml": "^3.8.3",
     "lodash": "^4.17.4",
     "marked": "^0.3.6"
+  },
+  "devDependencies": {
+    "gulp": "^3.9.1",
+    "through2": "^2.0.3",
+    "vinyl": "^2.0.2"
   }
 }

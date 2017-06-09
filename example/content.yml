@@ -5,6 +5,9 @@
     ## Here's content, by example.
     You may view the [other](other.html) page, or the [FAQ](faq.html).
 
+    # 🍺
+
+
 - $t: page
   $path: other.html
   title: The other file

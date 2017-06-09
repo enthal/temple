@@ -15,14 +15,39 @@ You probably shouldn't use this yet, but I do.
 
 ## Usage
 
+Temple processes content and template files into output files (named in the content).
+
+- Each **template** file:
+  - is named as `X.html`, where `X` is the template name (the extension is actually arbitrary);
+  - may contain JavaScript, interpolated with literal text, like HTML;
+  - is interpreted per the [lodash `_.template`](https://lodash.com/docs/4.17.4#template) function;
+- The **YAML** content file:
+  - contains the entire site content;
+  - is at the top level a YAML sequence.  See below for details;
+
+### via Gulp
+
+```
+const temple = require('temple-cms').gulp;
+
+gulp.task('template', function () {
+  gulp.src('./templates/*.html')
+    .pipe(temple('./content.yml'))
+    .pipe(gulp.dest('out'))
+});
+```
+
+
+### via Command Line
+
 ```
 temple -h
 temple -c content.yml -t templates/ -s static/ -o out/
 ```
 
 As invoked above:
-- `templates/` contains a set of files named as `X.html`, where `X` is the template name (the extension is actually arbitrary).  Each file may contain JavaScript, interpolated with literal text, like HTML.  It is interpreted per the [lodash `_.template`](https://lodash.com/docs/4.17.4#template) function.
-- `content.yaml` contains the entire site content, at the top level a YAML sequence.  See next section.
+- `templates/` contains a set of files named as `X.html`, where `X` is the template name.
+- `content.yaml` contains the entire site content.
 - `out/` is the root to which files are generated (see the `$path` content variable, below).
 - `static/` contains files to be copied to `out/` (preserving directory nesting) before file generation from templates.
 
@@ -47,9 +72,8 @@ E.g.,
 
 - The initial `-` and subsequent indentation make this, in YAML terms, a single mapping in a series (object in an array, in JS terms).
 - The `$t` key here elects template `page` (in `templates/page.html`).
-- The (optional) `$file` effects the output of the templated content to a file, in this case to `out/index.html`.
-- The `body` value is prefixed with [`|-`](http://www.yaml.org/spec/1.2/spec.html#id2794534), denoting a multiline string (whitespace clipped), which here happens to be markdown.
-- The `$path` key effects output of the template result to a file, in our example `out/index.html`.
+- The (optional) `$path` sends the output of the templated content to a file, in this case to `out/index.html`.
+- The `body` value here is prefixed with [`|-`](http://www.yaml.org/spec/1.2/spec.html#id2794534), denoting in YAML a multiline string (whitespace clipped), which here happens to be markdown.
 
 The page template might look something like this:
 ```html

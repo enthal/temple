@@ -2,14 +2,21 @@
 const fs   = require('fs-extra');
 const _ = require('lodash')
 const yaml = require('js-yaml');
-const glob = require('glob-all');
 const Promise = require('bluebird');
 const marked = require('marked');
-const program = require('commander');
 
 Promise.promisifyAll(fs);
 
+const doExports = () => {
+  module.exports.makeRecurse = makeRecurse;
+  module.exports.gulp = makeGulpPlugin;
+}
+
 const main = () => {
+  const program = require('commander');
+  const path = require('path');
+  const glob = require('glob-all');
+
   program
     .option('-c, --content <path>',   '(REQUIRED) YAML/JSON content file')
     .option('-t, --templates <path>', '(REQUIRED) directory (recursively) containing template files')
@@ -34,13 +41,58 @@ const main = () => {
 
   const templateFilenames = glob.sync(program.templates + '/**/*');
   const templatesByName = _.fromPairs(_.map(templateFilenames, (f) => {
-    const name = /.*\/([^.]+).*/.exec(f)[1];  // TODO: nest template naming (flattening here)
-    return [name,_.template(fs.readFileSync(f, 'utf8'))];  // TODO: async
+    const name = getTemplateNameFromFilepath(f);
+    return [name, _.template(fs.readFileSync(f, 'utf8'))];  // TODO: async
   }));
 
+  const writeOutputFile = (filepath, text) => fs.outputFileSync(path.join(program.out, filepath), text);
+
+  _.each(content, makeRecurse(templatesByName, writeOutputFile));
+}
+
+
+const makeGulpPlugin = (content) => {
+  const through = require('through2');
+  const Vinyl = require('vinyl');
+
+  if (!content)  throw new Error("You need content!");
+  if (_.isString(content)) {
+    content = yaml.safeLoad(fs.readFileSync(content, 'utf8'));  // TODO: async; maybe allow passing in directly?
+  } else
+  if (!_.isArray(content)) {
+    throw new Error("content must be either a string (yaml filename) or an array (loaded content, as from a yaml file)");
+  }
+
+  const templatesByName = {};
+  const outputFiles = [];
+  return through.obj(
+    (file, encoding, callback) => {
+      const name = getTemplateNameFromFilepath(file.path);
+      templatesByName[name] = _.template(file.contents.toString(encoding));
+      callback();
+    },
+    function (callback) {  // flush
+      const generateOutputFile = (filepath, text) => this.push(
+        new Vinyl({ path:filepath, contents:Buffer.from(text, 'utf8') }));
+      try {
+        _.each(content, makeRecurse(templatesByName, generateOutputFile));
+        callback();
+      } catch (e) {
+        callback(e);
+      }
+    }
+  );
+}
+
+const getTemplateNameFromFilepath = (filepath) =>
+  /.*\/([^.]+).*/.exec(filepath)[1];  // TODO: nest template naming (flattening here)
+
+
+const makeRecurse = (templatesByName, onOutputFile) => {
   const recurse = (os) => {
     if (os == null)     { os = []; }
     if (!_.isArray(os)) { os = [os]; }
+    // log('recurse', os.length);
 
     return _.map(os, (o) => {
       let text;
@@ -56,7 +108,7 @@ const main = () => {
           }, o), {sourceURL:o.$t});
 
         if (o.$path) {
-          fs.outputFileSync(program.out + o.$path, text);
+          onOutputFile(o.$path, text);
         }
       } else
 
@@ -78,12 +130,13 @@ const main = () => {
 
     }).join('\n');
   }
-
-  _.each(content, recurse);
+  return recurse;
 }
 
 const log = console.log;
 
 if (require.main === module) {
   main();
+} else {
+  doExports();
 }
