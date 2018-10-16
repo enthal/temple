@@ -51,7 +51,7 @@ const main = () => {
 
   const meta = {};
   _.each(content, makeRecurse(templatesByName, writeOutputFile, meta));
-  const error = makeError(meta);
+  const error = makeAnyFinalError(meta);
   if (error)  throw error;
 }
 
@@ -73,7 +73,7 @@ const makeGulpPlugin = (content) => {
   return through.obj(
     (file, encoding, callback) => {
       const name = getTemplateNameFromFilepath(file.path);
-      templatesByName[name] = _.template(file.contents.toString(encoding));
+      templatesByName[name] = _.template(file.contents.toString(encoding), { sourceURL:file.path });
       callback();
     },
     function (callback) {  // flush
@@ -82,8 +82,7 @@ const makeGulpPlugin = (content) => {
       try {
         const meta = {};
         _.each(content, makeRecurse(templatesByName, generateOutputFile, meta));
-        if (meta.errors) console.warn("GOT ERRORS!")
-        callback(makeError(meta));
+        callback(makeAnyFinalError(meta));
       } catch (e) {
         callback(e);
       }
@@ -105,7 +104,7 @@ const loadContent = filename => {
   return os;
 }
 
-const makeError = meta => (meta.errors && !process.env.DEBUG) && new Error("Got errors, check error log (Set $DEBUG to emit errors into output files and finish with success anyway)")
+const makeAnyFinalError = meta => (meta.errors && !process.env.DEBUG) && new Error("Got errors, check error log (Set $DEBUG to emit errors into output files and finish with success anyway)")
 
 const getTemplateNameFromFilepath = (filepath) =>
   /.*\/([^.]+).*/.exec(filepath)[1];  // TODO: nest template naming (flattening here)
