@@ -49,11 +49,14 @@ const main = () => {
 
   const writeOutputFile = (filepath, text) => fs.outputFileSync(path.join(program.out, filepath), text);
 
-  _.each(content, makeRecurse(templatesByName, writeOutputFile));
+  const meta = {};
+  _.each(content, makeRecurse(templatesByName, writeOutputFile, meta));
+  const error = makeError(meta);
+  if (error)  throw error;
 }
 
 
-const makeGulpPlugin = (content, meta={}) => {
+const makeGulpPlugin = (content) => {
   const through = require('through2');
   const Vinyl = require('vinyl');
 
@@ -77,10 +80,10 @@ const makeGulpPlugin = (content, meta={}) => {
       const generateOutputFile = (filepath, text) => this.push(
         new Vinyl({ path:filepath, contents:Buffer.from(text, 'utf8') }));
       try {
-        const recurse = makeRecurse(templatesByName, generateOutputFile)
-        _.each(content, x => recurse(x));
-        if (recurse.meta.errors) console.warn("GOT ERRORS!")
-        callback((recurse.meta.errors && !process.env.DEBUG) && new Error("Got errors, check log (Set $DEBUG to emit errors into output files and finish with success anyway)"));
+        const meta = {};
+        _.each(content, makeRecurse(templatesByName, generateOutputFile, meta));
+        if (meta.errors) console.warn("GOT ERRORS!")
+        callback(makeError(meta));
       } catch (e) {
         callback(e);
       }
@@ -102,13 +105,14 @@ const loadContent = filename => {
   return os;
 }
 
+const makeError = meta => (meta.errors && !process.env.DEBUG) && new Error("Got errors, check error log (Set $DEBUG to emit errors into output files and finish with success anyway)")
+
 const getTemplateNameFromFilepath = (filepath) =>
   /.*\/([^.]+).*/.exec(filepath)[1];  // TODO: nest template naming (flattening here)
 
 
-const makeRecurse = (templatesByName, onOutputFile) => {
+const makeRecurse = (templatesByName, onOutputFile, meta={}) => {
   const recurse = (os) => {
-    const meta = recurse.meta;   // heh
     if (os == null)     { os = []; }
     if (!_.isArray(os)) { os = [os]; }
     // log('recurse', os.length);
@@ -117,6 +121,7 @@ const makeRecurse = (templatesByName, onOutputFile) => {
       let text;
 
       try {
+
         if (_.isPlainObject(o)) {
           if (o.$ref) {
             o = globalsByName[o.$ref];
@@ -161,6 +166,7 @@ const makeRecurse = (templatesByName, onOutputFile) => {
             text = `<span>${m[1]}</span>`;
           }
         }
+
       } catch(e) {
         text = makeErrorText(e);
         console.error(e);
@@ -172,7 +178,7 @@ const makeRecurse = (templatesByName, onOutputFile) => {
 
     }).join('\n');
   }
-  recurse.meta = {};
+  recurse.meta = meta;  // heh
   return recurse;
 }
 
