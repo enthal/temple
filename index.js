@@ -53,7 +53,7 @@ const main = () => {
 }
 
 
-const makeGulpPlugin = (content) => {
+const makeGulpPlugin = (content, meta={}) => {
   const through = require('through2');
   const Vinyl = require('vinyl');
 
@@ -77,8 +77,10 @@ const makeGulpPlugin = (content) => {
       const generateOutputFile = (filepath, text) => this.push(
         new Vinyl({ path:filepath, contents:Buffer.from(text, 'utf8') }));
       try {
-        _.each(content, makeRecurse(templatesByName, generateOutputFile));
-        callback();
+        const recurse = makeRecurse(templatesByName, generateOutputFile)
+        _.each(content, x => recurse(x));
+        if (recurse.meta.errors) console.warn("GOT ERRORS!")
+        callback((recurse.meta.errors && !process.env.DEBUG) && new Error("Got errors, check log (Set $DEBUG to emit errors into output files and finish with success anyway)"));
       } catch (e) {
         callback(e);
       }
@@ -87,7 +89,7 @@ const makeGulpPlugin = (content) => {
 }
 
 const loadContent = filename => {
-  const os = yaml.safeLoad(fs.readFileSync(filename, 'utf8'));
+  let os = yaml.safeLoad(fs.readFileSync(filename, 'utf8'));
   if (os == null)     { os = []; }
   if (!_.isArray(os)) { os = [os]; }
 
@@ -106,6 +108,7 @@ const getTemplateNameFromFilepath = (filepath) =>
 
 const makeRecurse = (templatesByName, onOutputFile) => {
   const recurse = (os) => {
+    const meta = recurse.meta;   // heh
     if (os == null)     { os = []; }
     if (!_.isArray(os)) { os = [os]; }
     // log('recurse', os.length);
@@ -113,59 +116,83 @@ const makeRecurse = (templatesByName, onOutputFile) => {
     return _.map(os, (o) => {
       let text;
 
-      if (_.isPlainObject(o)) {
-        if (o.$ref) {
-          o = globalsByName[o.$ref];
-        }
+      try {
+        if (_.isPlainObject(o)) {
+          if (o.$ref) {
+            o = globalsByName[o.$ref];
+          }
 
-        if (o.$globals) {  // loaded in code above
-          return null;  // TODO: this is hacky: silently ignored unless at root, no scoping, etc.
+          if (o.$globals) {  // loaded in code above
+            return null;  // TODO: this is hacky: silently ignored unless at root, no scoping, etc.
+          } else
+          if (o.$object) {
+            if (o.$t) { throw new Error("object can't have both $object and $t"); }  // TODO: show path into content
+            // used for making yaml references
+            return null;
+          } else
+          if (o.$include) {
+            return recurse(loadContent(o.$include));
+          }
+
+          if (!o.$t) { throw new Error("Content object lacks $t"); }  // TODO: show path into content
+          const template = templatesByName[o.$t];
+          if (!template) { throw new Error("No template for $t: "+o.$t); }  // TODO: show path into content
+
+          text = template(_.assign({
+              $:{ recurse:recurse },
+              _:_,
+            }, o), {sourceURL:o.$t});
+
+          if (o.$path) {
+            onOutputFile(o.$path, text);
+          }
         } else
-        if (o.$object) {
-          if (o.$t) { throw new Error("object can't have both $object and $t"); }  // TODO: show path into content
-          // used for making yaml references
-          return null;
-        } else
-        if (o.$include) {
-          return recurse(loadContent(o.$include));
+
+        if (_.isArray(o)) {
+          text = recurse(o);  // flatten nested arrays; TODO really?
         }
 
-        if (!o.$t) { throw new Error("Content object lacks $t"); }  // TODO: show path into content
-        const template = templatesByName[o.$t];
-        if (!template) { throw new Error("No template for $t: "+o.$t); }  // TODO: show path into content
-
-        text = template(_.assign({
-            $:{ recurse:recurse },
-            _:_,
-          }, o), {sourceURL:o.$t});
-
-        if (o.$path) {
-          onOutputFile(o.$path, text);
+        else {
+          o = (''+o);
+          text = marked(o);
+          const m = /^<p>([^]*)<\/p>\n$/ .exec(text);
+          if (m && !/<p>/.test(m[1])) {
+            // Only 1 wrapping <p>: replace with <span>
+            text = `<span>${m[1]}</span>`;
+          }
         }
-      } else
-
-      if (_.isArray(o)) {
-        text = recurse(o);  // flatten nested arrays; TODO really?
-      }
-
-      else {
-        o = (''+o);
-        text = marked(o);
-        const m = /^<p>([^]*)<\/p>\n$/ .exec(text);
-        if (m && !/<p>/.test(m[1])) {
-          // Only 1 wrapping <p>: replace with <span>
-          text = `<span>${m[1]}</span>`;
-        }
+      } catch(e) {
+        text = makeErrorText(e);
+        console.error(e);
+        if (!meta.errors) meta.errors=[];
+        meta.errors.push(e);
       }
 
       return text;
 
     }).join('\n');
   }
+  recurse.meta = {};
   return recurse;
 }
 
 const globalsByName = {};
+
+const makeErrorText = e => `
+  <div
+    class="x-temple-error"
+    style="
+      background-color:#a00;
+      color:white;
+      font-family:monospace;
+      font-size=120%;
+      padding:10px;
+      border: 4px dashed #f33;
+      border-radius: 8px;
+      "
+    >
+    ${e}
+  </div>`
 
 const log = console.log;
 
