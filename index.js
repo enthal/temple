@@ -33,7 +33,7 @@ const main = () => {
     }
   });
 
-  const content = yaml.safeLoad(fs.readFileSync(program.content, 'utf8'));  // TODO: async
+  const content = loadContent(program.content);
 
   fs.emptyDirSync(program.out);
 
@@ -59,7 +59,7 @@ const makeGulpPlugin = (content) => {
 
   if (!content)  throw new Error("You need content!");
   if (_.isString(content)) {
-    content = yaml.safeLoad(fs.readFileSync(content, 'utf8'));  // TODO: async; maybe allow passing in directly?
+    content = loadContent(content);
   } else
   if (!_.isArray(content)) {
     throw new Error("content must be either a string (yaml filename) or an array (loaded content, as from a yaml file)");
@@ -86,6 +86,20 @@ const makeGulpPlugin = (content) => {
   );
 }
 
+const loadContent = filename => {
+  const os = yaml.safeLoad(fs.readFileSync(filename, 'utf8'));
+  if (os == null)     { os = []; }
+  if (!_.isArray(os)) { os = [os]; }
+
+  _.each(os, o => {
+    // TODO: this is hacky: silently ignored unless at root, no scoping, etc.
+    if (o.$globals) {
+      _.assign(globalsByName, o.$globals);
+    }
+  });
+  return os;
+}
+
 const getTemplateNameFromFilepath = (filepath) =>
   /.*\/([^.]+).*/.exec(filepath)[1];  // TODO: nest template naming (flattening here)
 
@@ -100,10 +114,20 @@ const makeRecurse = (templatesByName, onOutputFile) => {
       let text;
 
       if (_.isPlainObject(o)) {
+        if (o.$ref) {
+          o = globalsByName[o.$ref];
+        }
+
+        if (o.$globals) {  // loaded in code above
+          return null;  // TODO: this is hacky: silently ignored unless at root, no scoping, etc.
+        } else
         if (o.$object) {
           if (o.$t) { throw new Error("object can't have both $object and $t"); }  // TODO: show path into content
           // used for making yaml references
-          return null
+          return null;
+        } else
+        if (o.$include) {
+          return recurse(loadContent(o.$include));
         }
 
         if (!o.$t) { throw new Error("Content object lacks $t"); }  // TODO: show path into content
@@ -140,6 +164,8 @@ const makeRecurse = (templatesByName, onOutputFile) => {
   }
   return recurse;
 }
+
+const globalsByName = {};
 
 const log = console.log;
 
