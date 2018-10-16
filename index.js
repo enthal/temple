@@ -7,6 +7,8 @@ const marked = require('marked');
 
 Promise.promisifyAll(fs);
 
+_.templateSettings.interpolate = /<%=([\s\S]+?)%>/g;  // disable ES6 ${...} syntax, which may be used in JS intended for browser
+
 const doExports = () => {
   module.exports.makeRecurse = makeRecurse;
   module.exports.gulp = makeGulpPlugin;
@@ -98,6 +100,12 @@ const makeRecurse = (templatesByName, onOutputFile) => {
       let text;
 
       if (_.isPlainObject(o)) {
+        if (o.$object) {
+          if (o.$t) { throw new Error("object can't have both $object and $t"); }  // TODO: show path into content
+          // used for making yaml references
+          return null
+        }
+
         if (!o.$t) { throw new Error("Content object lacks $t"); }  // TODO: show path into content
         const template = templatesByName[o.$t];
         if (!template) { throw new Error("No template for $t: "+o.$t); }  // TODO: show path into content
