@@ -91,17 +91,17 @@ const makeGulpPlugin = (content) => {
 }
 
 const loadContent = filename => {
-  let os = yaml.safeLoad(fs.readFileSync(filename, 'utf8'));
-  if (os == null)     { os = []; }
-  if (!_.isArray(os)) { os = [os]; }
-
-  _.each(os, o => {
-    // TODO: this is hacky: silently ignored unless at root, no scoping, etc.
-    if (o.$globals) {
-      _.assign(globalsByName, o.$globals);
-    }
-  });
-  return os;
+  log("loadContent:", filename);
+  const content = yaml.safeLoad(fs.readFileSync(filename, 'utf8'));
+  const recurse = x =>
+    _.isArray(x) ? _.map(x, recurse) :
+    _.isPlainObject(x) ?
+      x.$globals ? ( _.assign(globalsByName, x.$globals), null ) :
+      x.$include ? loadContent(x.$include) :
+      _.mapValues(x, recurse) :
+    x;
+  return recurse(content);
+  // return _.tap(recurse(content), x=>log(JSON.stringify(x,0,2)));
 }
 
 const makeAnyFinalError = meta => (meta.errors && !process.env.DEBUG) && new Error("Got errors, check error log (Set $DEBUG to emit errors into output files and finish with success anyway)")
@@ -134,9 +134,6 @@ const makeRecurse = (templatesByName, onOutputFile, meta={}) => {
             // used for making yaml references
             return null;
           } else
-          if (o.$include) {
-            return recurse(loadContent(o.$include));
-          }
 
           if (!o.$t) { throw new Error("Content object lacks $t"); }  // TODO: show path into content
           const template = templatesByName[o.$t];
